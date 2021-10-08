@@ -1,10 +1,12 @@
+from aiogram import Dispatcher
 from aiogram.dispatcher import FSMContext
+from aiogram.dispatcher.filters import Text
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.types import ReplyKeyboardMarkup, Message, ReplyKeyboardRemove, InlineKeyboardMarkup, KeyboardButton, \
     CallbackQuery
 from aiogram.utils import deep_linking
 
-from app.db import db_create_pool, db_start, db_close_connections, db_create_answer
+from app.db import db_create_pool, db_create_answer
 
 
 class OrderAnswer(StatesGroup):
@@ -37,6 +39,7 @@ async def wait_question(message: Message, state: FSMContext):
 async def wait_answer(message: Message, state: FSMContext):
     state_data = await state.get_data()
     answer_numb = state_data['numbers']
+    await state.update_data(numbers=answer_numb + 1)
 
     ans = "Напишите текст ответа №" + str(
         answer_numb + 1) + "\n" + "\nЕсли ответов не осталось, то введите команду /finish"
@@ -56,19 +59,18 @@ async def wait_answer(message: Message, state: FSMContext):
         await message.answer(ans)
         await state.update_data(answer_5=message.text)
     elif answer_numb == 6:
+        await state.update_data(answer_6=message.text)
         await send_poll(message, state)
 
 
 async def send_poll(message: Message, state: FSMContext):
     state_data = await state.get_data()
-    await db_start()
     bol = await db_create_pool(message.from_user.id, state_data['question'], state_data['answer_1'],
                                state_data['answer_2'],
-                               state_data['answer_3'], state_data['answer_4'], state_data['answer_5'], message.text)
-    await db_close_connections()
+                               state_data['answer_3'], state_data['answer_4'], state_data['answer_5'], state_data['answer_6'])
     if bol:
         keyboard = InlineKeyboardMarkup(resize_keyboard=True)
-        for i in range(0, state_data['numbers']):
+        for i in range(1, state_data['numbers']):
             answer = "answer_" + str(i)
             keyboard.add(KeyboardButton(text=state_data[answer], callback_data=answer))
         await message.answer(state_data['question'],
@@ -77,9 +79,18 @@ async def send_poll(message: Message, state: FSMContext):
         await message.answer("Cсылка: " + link)
     else:
         await message.answer("Как какать?")
+    await state.finish()
 
 
-async def call_back_answer(call: CallbackQuery, state: FSMContext):
-    await db_start()
+async def call_back_answer(call: CallbackQuery):
     await db_create_answer(call.message.message_id, call.from_user.id, int(call.data[-1]))
-    await db_close_connections()
+    await call.message.edit_text("Ответ отправлен", reply_markup=ReplyKeyboardRemove())
+
+
+def register_handlers_start(dp: Dispatcher):
+    dp.register_message_handler(start, commands="start", state="*")
+    dp.register_message_handler(create_pool, Text(equals="Создать опрос", ignore_case=True), state="*")
+    dp.register_message_handler(wait_question, state=OrderAnswer.waiting_for_question)
+    dp.register_message_handler(wait_answer, state=OrderAnswer.waiting_for_answer)
+
+    dp.register_callback_query_handler(call_back_answer, Text(startswith="answer_"), state="*")

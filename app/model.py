@@ -1,5 +1,4 @@
 from tortoise import models, fields
-from tortoise.contrib.pydantic import pydantic_model_creator
 
 
 class Poll(models.Model):
@@ -15,6 +14,6 @@ class Poll(models.Model):
 
 
 class Answer(models.Model):
-    id_poll = fields.ForeignKeyField('models.Poll', related_name='answers')
+    poll = fields.ForeignKeyField('models.Poll', related_name='answers')
     id_respondent = fields.IntField(null=False)
-    id_answer = fields.IntField(pk=True)
+    id_answer = fields.IntField(null=False)

@@ -5,9 +5,10 @@ from tortoise.exceptions import IntegrityError
 from app.model import Poll, Answer
 from app.read_conf import Config
 from main import logger
+from main import config
 
 
-async def db_start(config: Config):
+async def db_start():
     Url = f'{config.db_bot.db_type}://{config.db_bot.user}:{config.db_bot.password}@{config.db_bot.host}:{config.db_bot.port}/{config.db_bot.db_name}'
     tortoise_config: dict = generate_config(Url, {"models": ["app.dbModel"]})
     await Tortoise.init(
@@ -21,6 +22,7 @@ async def db_create_pool(id_owner: int, question: str, answer_1: str, answer_2: 
     try:
         await Poll.create(id_owner=id_owner, question=question, answer_1=answer_1, answer_2=answer_2, answer_3=answer_3,
                           answer_4=answer_4, answer_5=answer_5, answer_6=answer_6)
+        return True
     except IntegrityError:
         logger.error("Данный опрос уже существует")
 

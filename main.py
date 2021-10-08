@@ -10,6 +10,7 @@ from app.read_conf import load_config
 from app.start import register_handlers_start
 
 logger = logging.getLogger(__name__)
+config = load_config("config/bot.ini")
 
 
 async def set_commands(bot: Bot):
@@ -27,13 +28,11 @@ async def main():
     )
     logger.error("Starting bot")
 
-    config = load_config("config/bot.ini")
-
     bot = Bot(token=config.tg_bot.token)
     dp = Dispatcher(bot, storage=MemoryStorage())
 
     register_handlers_start(dp)
-    await db_start(config)
+    await db_start()
 
     await set_commands(bot)
 

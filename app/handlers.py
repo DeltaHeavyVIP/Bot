@@ -6,7 +6,8 @@ from aiogram.types import ReplyKeyboardMarkup, Message, ReplyKeyboardRemove, Inl
     CallbackQuery
 from aiogram.utils import deep_linking
 
-from app.db import db_create_pool, db_create_answer, db_get_owner_polls, db_get_statistics_pool
+from app.db import db_create_pool, db_create_answer, db_get_owner_polls, db_get_statistics_pool, db_get_pool
+from main import logger
 
 
 class OrderAnswer(StatesGroup):
@@ -16,10 +17,20 @@ class OrderAnswer(StatesGroup):
 
 async def start(message: Message, state: FSMContext):
     await state.finish()
-    keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add("Создать опрос", "Статистика опросов")
-    await message.answer("Я бот коммунист! \n"
-                         "Хочешь посмотерть опрос или создать его?", reply_markup=keyboard)
+    spl = message.text.split()
+    if len(spl) == 1:
+        keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+        keyboard.add("Создать опрос", "Статистика опросов")
+        await message.answer("Я бот коммунист! \n"
+                             "Хочешь посмотерть опрос или создать его?", reply_markup=keyboard)
+    elif len(spl) == 2:
+        try:
+            count_answers, question, list_answer = await db_get_pool(int(spl[1]))
+        except:
+            logger.error("Запрос на несуществующий опрос")
+            await message.answer("Такого опроса не существует!")
+            return
+        await sending_a_created(message, count_answers, question, list_answer)
 
 
 # Создание опроса
@@ -70,22 +81,28 @@ async def wait_answer(message: Message, state: FSMContext):
 
 async def send_poll(message: Message, state: FSMContext):
     state_data = await state.get_data()
-    bol = await db_create_pool(message.from_user.id, state_data['question'], state_data['answer_1'],
+    bol = await db_create_pool(message.from_user.id, state_data['numbers'], state_data['question'],
+                               state_data['answer_1'],
                                state_data['answer_2'],
                                state_data['answer_3'], state_data['answer_4'], state_data['answer_5'],
                                state_data['answer_6'])
     if bol:
-        keyboard = InlineKeyboardMarkup(resize_keyboard=True)
-        for i in range(1, state_data['numbers']):
-            answer = "answer_" + str(i)
-            keyboard.add(KeyboardButton(text=state_data[answer], callback_data=answer))
-        await message.answer(state_data['question'],
-                             reply_markup=keyboard)
+        list_answers = [state_data['answer_1'], state_data['answer_2'], state_data['answer_3'], state_data['answer_4'],
+                        state_data['answer_5'], state_data['answer_6']]
+        await sending_a_created(message, int(state_data['numbers']), str(state_data['question']), list_answers)
         link = await deep_linking.get_start_link(message.message_id + 1)
         await message.answer("Cсылка: " + link)
     else:
         await message.answer("Как какать?")
     await state.finish()
+
+
+async def sending_a_created(message: Message, count_answers: int, question: str, list_answer: list):
+    keyboard = InlineKeyboardMarkup(resize_keyboard=True)
+    for i in range(1, count_answers):
+        ans = "answer_" + str(i)
+        keyboard.add(KeyboardButton(text=list_answer[i - 1], callback_data=ans))
+    await message.answer(question, reply_markup=keyboard)
 
 
 # Блок закончен
@@ -103,7 +120,11 @@ async def call_back_answer(call: CallbackQuery):
 # Преждевременное окончание ввода ответов на опрос
 async def finish_answer(message: Message, state: FSMContext):
     state_data = await state.get_data()
-    answer_numb = state_data['numbers']
+    try:
+        answer_numb = state_data['numbers']
+    except:
+        logger.error("Опять просто так ввели команду /finish")
+        return
     if answer_numb < 3:
         keyboard = InlineKeyboardMarkup(resize_keyboard=True)
         keyboard.add(KeyboardButton(text="Продолжить", callback_data="resume_pool"))
@@ -177,13 +198,11 @@ async def information_statistics_pool(call: CallbackQuery, state: FSMContext):
     poll = state_data['owner_polls'][state_data['page'] * 3 + int(call.data[-1])]
     dictionary = await db_get_statistics_pool(poll.id_poll)
     await call.bot.delete_message(call.message.chat.id, call.message.message_id)
-    await call.message.answer("Ваш вопрос: " + str(poll.question) + "\n" +
-                              "За ответ №1 проголосовало: " + str(dictionary.get('answ_1')) + " человек\n" +
-                              "За ответ №2 проголосовало: " + str(dictionary.get('answ_2')) + " человек\n" +
-                              "За ответ №3 проголосовало: " + str(dictionary.get('answ_3')) + " человек\n" +
-                              "За ответ №4 проголосовало: " + str(dictionary.get('answ_4')) + " человек\n" +
-                              "За ответ №5 проголосовало: " + str(dictionary.get('answ_5')) + " человек\n" +
-                              "За ответ №6 проголосовало: " + str(dictionary.get('answ_6')) + " человек")
+    mes = "Ваш вопрос: " + str(poll.question) + "\n"
+    for i in range(1, poll.count_answer):
+        answ = 'answ_' + str(i)
+        mes += "За ответ №" + str(i) + " проголосовало: " + str(dictionary.get(answ)) + " человек\n"
+    await call.message.answer(mes)
 
 
 # Блок закончен

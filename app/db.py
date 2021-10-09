@@ -16,11 +16,13 @@ async def db_start():
     await Tortoise.generate_schemas()
 
 
-async def db_create_pool(id_owner: int, question: str, answer_1: str, answer_2: str, answer_3: str, answer_4: str,
+async def db_create_pool(id_owner: int, count_answer: int, question: str, answer_1: str, answer_2: str, answer_3: str,
+                         answer_4: str,
                          answer_5: str, answer_6: str):
     await db_start()
     try:
-        await Poll.create(id_owner=id_owner, question=question, answer_1=answer_1, answer_2=answer_2, answer_3=answer_3,
+        await Poll.create(id_owner=id_owner, count_answer=count_answer, question=question, answer_1=answer_1,
+                          answer_2=answer_2, answer_3=answer_3,
                           answer_4=answer_4, answer_5=answer_5, answer_6=answer_6)
         return True
     except IntegrityError:
@@ -60,6 +62,14 @@ async def db_get_statistics_pool(id_poll: int):
         dictionary[text] = await Answer.filter(poll=id_poll, id_answer=i).count()
     await db_close_connections()
     return dictionary
+
+
+async def db_get_pool(id_poll: int):
+    await db_start()
+    poll = await Poll.filter(id_poll=id_poll).first()
+    await db_close_connections()
+    answers_poll = [poll.answer_1, poll.answer_2, poll.answer_3, poll.answer_4, poll.answer_5, poll.answer_6]
+    return int(poll.count_answer), str(poll.question), answers_poll
 
 
 async def db_close_connections():

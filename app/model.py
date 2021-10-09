@@ -4,6 +4,7 @@ from tortoise import models, fields
 class Poll(models.Model):
     id_poll = fields.IntField(pk=True)
     id_owner = fields.IntField(null=False)
+    count_answer = fields.IntField(null=False)
     question = fields.CharField(max_length=255, null=False)
     answer_1 = fields.TextField(maxlenght=255, null=False)
     answer_2 = fields.TextField(maxlenght=255, null=False)

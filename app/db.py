@@ -39,18 +39,27 @@ async def db_create_answer(id_poll: int, id_respondent: int, number_answer: int)
         await db_close_connections()
 
 
-async def is_respondent(id_poll: int, id_owner: int):
+async def db_is_respondent(id_poll: int, id_owner: int):
     await db_start()
     await Answer.filter(id_poll=id_poll, id_owner=id_owner).first()
     await db_close_connections()
 
 
-async def get_owner_polls(id_owner: int):
+async def db_get_owner_polls(id_owner: int):
     await db_start()
     ret = await Poll.filter(id_owner=id_owner).all()
-
     await db_close_connections()
     return ret
+
+
+async def db_get_statistics_pool(id_poll: int):
+    dictionary = dict()
+    await db_start()
+    for i in range(1, 7):
+        text = 'answ_' + str(i)
+        dictionary[text] = await Answer.filter(poll=id_poll, id_answer=i).count()
+    await db_close_connections()
+    return dictionary
 
 
 async def db_close_connections():

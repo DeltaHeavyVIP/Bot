@@ -6,7 +6,7 @@ from aiogram.types import ReplyKeyboardMarkup, Message, ReplyKeyboardRemove, Inl
     CallbackQuery
 from aiogram.utils import deep_linking
 
-from app.db import db_create_pool, db_create_answer, get_owner_polls
+from app.db import db_create_pool, db_create_answer, db_get_owner_polls, db_get_statistics_pool
 
 
 class OrderAnswer(StatesGroup):
@@ -126,46 +126,72 @@ async def delete_pool(call: CallbackQuery, state: FSMContext):
 
 
 # Блок закончен
+
+
+# Статистика опросов
 async def statistics_pool(message: Message, state: FSMContext):
-    owner_polls: list = await get_owner_polls(message.from_user.id)
+    owner_polls: list = await db_get_owner_polls(message.from_user.id)
     await state.update_data(page=0)
     await state.update_data(owner_polls=owner_polls)
-    await edit_message_statistics_pools(message, state)
+    keyboard = await keyboard_statistics_poll(state)
+    await message.answer("Ниже представлены ваши опросы.", reply_markup=keyboard)
 
 
 async def next_statistics_poll(call: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
-    if state_data['page'] * 3 < len(state_data['owner_polls']):
+    if (state_data['page'] + 1) * 3 < len(state_data['owner_polls']):
         await state.update_data(page=(state_data['page'] + 1))
-        await edit_message_statistics_pools(call.message, state)
+    else:
+        await state.update_data(page=0)
+    keyboard = await keyboard_statistics_poll(state)
+    await call.message.edit_text("Ниже представлены ваши опросы.", reply_markup=keyboard)
 
 
 async def last_statistics_poll(call: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
-    if state_data['page'] - 1 == 0:
-        await statistics_pool(call.message, state)
-    else:
+    if state_data['page'] * 3 > 0:
         await state.update_data(page=(state_data['page'] - 1))
-        await edit_message_statistics_pools(call.message, state)
+    else:
+        if len(state_data['owner_polls']) % 3 == 0:
+            await state.update_data(page=(len(state_data['owner_polls']) // 3) - 1)
+        else:
+            await state.update_data(page=(len(state_data['owner_polls']) // 3))
+    keyboard = await keyboard_statistics_poll(state)
+    await call.message.edit_text("Ниже представлены ваши опросы.", reply_markup=keyboard)
 
 
-async def edit_message_statistics_pools(message: Message, state: FSMContext):
+async def keyboard_statistics_poll(state: FSMContext):
     state_data = await state.get_data()
     keyboard = InlineKeyboardMarkup(resize_keyboard=True)
-    for i in range(0, len(state_data['owner_polls']) % 3):
-        keyboard.add(KeyboardButton(text=state_data['owner_polls'][state_data['page'] * 3 + i].question,
-                                    callback_data="statistics_answer_" + str(i)))
-    keyboard.add(KeyboardButton(text="<", callback_data="next"),
-                 KeyboardButton(text=">", callback_data="last"))
-    if state_data['page'] == 0:
-        await message.answer("Ниже представлены ваши опросы.", reply_markup=keyboard)
-    else:
-        await message.edit_text("Ниже представлены ваши опросы.", reply_markup=keyboard)
+    for i in range(0, 3):
+        if state_data['page'] * 3 + i < len(state_data['owner_polls']):
+            keyboard.add(KeyboardButton(text=state_data['owner_polls'][state_data['page'] * 3 + i].question,
+                                        callback_data="statistics_answer_" + str(i)))
+    keyboard.add(KeyboardButton(text="<", callback_data="last"),
+                 KeyboardButton(text=">", callback_data="next"))
+    return keyboard
+
+
+async def information_statistics_pool(call: CallbackQuery, state: FSMContext):
+    state_data = await state.get_data()
+    poll = state_data['owner_polls'][state_data['page'] * 3 + int(call.data[-1])]
+    dictionary = await db_get_statistics_pool(poll.id_poll)
+    await call.bot.delete_message(call.message.chat.id, call.message.message_id)
+    await call.message.answer("Ваш вопрос: " + str(poll.question) + "\n" +
+                              "За ответ №1 проголосовало: " + str(dictionary.get('answ_1')) + " человек\n" +
+                              "За ответ №2 проголосовало: " + str(dictionary.get('answ_2')) + " человек\n" +
+                              "За ответ №3 проголосовало: " + str(dictionary.get('answ_3')) + " человек\n" +
+                              "За ответ №4 проголосовало: " + str(dictionary.get('answ_4')) + " человек\n" +
+                              "За ответ №5 проголосовало: " + str(dictionary.get('answ_5')) + " человек\n" +
+                              "За ответ №6 проголосовало: " + str(dictionary.get('answ_6')) + " человек")
+
+
+# Блок закончен
 
 
 # Регистрация хендлеров
 def register_handlers_start(dp: Dispatcher):
-    dp.register_message_handler(finish_answer, commands="finish")
+    dp.register_message_handler(finish_answer, commands="finish", state="*")
     dp.register_callback_query_handler(resume_pool, lambda call: call.data == "resume_pool",
                                        state=OrderAnswer.waiting_for_answer)
     dp.register_callback_query_handler(delete_pool, lambda call: call.data == "delete_pool",
@@ -180,3 +206,4 @@ def register_handlers_start(dp: Dispatcher):
     dp.register_message_handler(statistics_pool, Text(equals="Статистика опросов", ignore_case=True), state="*")
     dp.register_callback_query_handler(next_statistics_poll, lambda call: call.data == "next", state="*")
     dp.register_callback_query_handler(last_statistics_poll, lambda call: call.data == "last", state="*")
+    dp.register_callback_query_handler(information_statistics_pool, Text(startswith="statistics_answer_"), state="*")

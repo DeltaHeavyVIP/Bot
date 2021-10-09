@@ -6,7 +6,8 @@ from aiogram.types import ReplyKeyboardMarkup, Message, ReplyKeyboardRemove, Inl
     CallbackQuery
 from aiogram.utils import deep_linking
 
-from app.db import db_create_pool, db_create_answer, db_get_owner_polls, db_get_statistics_pool, db_get_pool
+from app.db import db_create_pool, db_create_answer, db_get_owner_polls, db_get_statistics_pool, db_get_pool, \
+    db_is_respondent
 from main import logger
 
 
@@ -24,13 +25,16 @@ async def start(message: Message, state: FSMContext):
         await message.answer("Я бот коммунист! \n"
                              "Хочешь посмотерть опрос или создать его?", reply_markup=keyboard)
     elif len(spl) == 2:
-        try:
-            count_answers, question, list_answer = await db_get_pool(int(spl[1]))
-        except:
-            logger.error("Запрос на несуществующий опрос")
-            await message.answer("Такого опроса не существует!")
-            return
-        await sending_a_created(message, count_answers, question, list_answer)
+        if db_is_respondent(int(spl[1]), message.from_user.id) == 0:
+            try:
+                count_answers, question, list_answer = await db_get_pool(int(spl[1]))
+            except:
+                logger.error("Запрос на несуществующий опрос")
+                await message.answer("Такого опроса не существует!")
+                return
+            await sending_a_created(message, count_answers, question, list_answer)
+        else:
+            await message.answer("Вы уже проходили этот опрос!")
 
 
 # Создание опроса

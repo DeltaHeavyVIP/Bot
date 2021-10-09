@@ -34,6 +34,10 @@ async def wait_question(message: Message, state: FSMContext):
     await message.answer("Напишите текст ответа №1")
     await OrderAnswer.next()
     await state.update_data(numbers=1)
+    await state.update_data(answer_3=None)
+    await state.update_data(answer_4=None)
+    await state.update_data(answer_5=None)
+    await state.update_data(answer_6=None)
 
 
 async def wait_answer(message: Message, state: FSMContext):
@@ -67,7 +71,8 @@ async def send_poll(message: Message, state: FSMContext):
     state_data = await state.get_data()
     bol = await db_create_pool(message.from_user.id, state_data['question'], state_data['answer_1'],
                                state_data['answer_2'],
-                               state_data['answer_3'], state_data['answer_4'], state_data['answer_5'], state_data['answer_6'])
+                               state_data['answer_3'], state_data['answer_4'], state_data['answer_5'],
+                               state_data['answer_6'])
     if bol:
         keyboard = InlineKeyboardMarkup(resize_keyboard=True)
         for i in range(1, state_data['numbers']):
@@ -83,14 +88,44 @@ async def send_poll(message: Message, state: FSMContext):
 
 
 async def call_back_answer(call: CallbackQuery):
-    await db_create_answer(call.message.message_id, call.from_user.id, int(call.data[-1]))
-    await call.message.edit_text("Ответ отправлен", reply_markup=ReplyKeyboardRemove())
+    await db_create_answer(call.message.message_id, call.from_user.id,
+                           int(call.data[-1]))  # TODO как получать id опроса
+    await call.message.edit_text("Выбран ответ №" + call.data[-1])
+
+
+async def finish_answer(message: Message, state: FSMContext):
+    state_data = await state.get_data()
+    answer_numb = state_data['numbers']
+    if answer_numb < 3:
+        keyboard = InlineKeyboardMarkup(resize_keyboard=True)
+        keyboard.add(KeyboardButton(text="Продолжить", callback_data="resume_pool"))
+        keyboard.add(KeyboardButton(text="Потерять", callback_data="delete_pool"))
+        await message.answer("В опросе нельзя использовать меньше 2 ответов, вы хотите потерять все данные?",
+                             reply_markup=keyboard)
+    else:
+        await send_poll(message, state)
+
+
+async def resume_pool(call: CallbackQuery):
+    await call.message.delete()
+    await call.bot.delete_message(call.message.chat.id, call.message.message_id - 1)
+
+
+async def delete_pool(call: CallbackQuery, state: FSMContext):
+    await state.finish()
+    await call.message.delete()
+    await call.message.answer("Вы прервали создание запроса. Данные потеряны!")
 
 
 def register_handlers_start(dp: Dispatcher):
+    dp.register_message_handler(finish_answer, commands="finish", state="*")
+    dp.register_callback_query_handler(resume_pool, lambda call: call.data == "resume_pool",
+                                       state=OrderAnswer.waiting_for_answer)
+    dp.register_callback_query_handler(delete_pool, lambda call: call.data == "delete_pool",
+                                       state=OrderAnswer.waiting_for_answer)
+
     dp.register_message_handler(start, commands="start", state="*")
     dp.register_message_handler(create_pool, Text(equals="Создать опрос", ignore_case=True), state="*")
     dp.register_message_handler(wait_question, state=OrderAnswer.waiting_for_question)
     dp.register_message_handler(wait_answer, state=OrderAnswer.waiting_for_answer)
-
     dp.register_callback_query_handler(call_back_answer, Text(startswith="answer_"), state="*")

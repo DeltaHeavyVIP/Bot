@@ -45,5 +45,13 @@ async def is_respondent(id_poll: int, id_owner: int):
     await db_close_connections()
 
 
+async def get_owner_polls(id_owner: int):
+    await db_start()
+    ret = await Poll.filter(id_owner=id_owner).all()
+
+    await db_close_connections()
+    return ret
+
+
 async def db_close_connections():
     await Tortoise.close_connections()

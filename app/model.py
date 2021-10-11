@@ -16,5 +16,5 @@ class Poll(models.Model):
 
 class Answer(models.Model):
     poll = fields.ForeignKeyField('models.Poll', related_name='answers')
-    id_respondent = fields.IntField(null=False)
-    id_answer = fields.IntField(null=False)
+    respondent = fields.IntField(null=False)
+    answer = fields.IntField(null=False)

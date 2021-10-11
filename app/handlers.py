@@ -5,6 +5,7 @@ from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.types import ReplyKeyboardMarkup, Message, ReplyKeyboardRemove, InlineKeyboardMarkup, KeyboardButton, \
     CallbackQuery
 from aiogram.utils import deep_linking
+from aiogram.utils.callback_data import CallbackData
 
 from app.db import db_create_pool, db_create_answer, db_get_owner_polls, db_get_statistics_pool, db_get_pool, \
     db_is_respondent
@@ -25,14 +26,15 @@ async def start(message: Message, state: FSMContext):
         await message.answer("Я бот коммунист! \n"
                              "Хочешь посмотерть опрос или создать его?", reply_markup=keyboard)
     elif len(spl) == 2:
-        if db_is_respondent(int(spl[1]), message.from_user.id) == 0:
+        info = await db_is_respondent(int(spl[1]), message.from_user.id)
+        if info == 0:
             try:
                 count_answers, question, list_answer = await db_get_pool(int(spl[1]))
             except:
                 logger.error("Запрос на несуществующий опрос")
                 await message.answer("Такого опроса не существует!")
                 return
-            await sending_a_created(message, count_answers, question, list_answer)
+            await sending_a_created(message, count_answers, question, list_answer,spl[1])
         else:
             await message.answer("Вы уже проходили этот опрос!")
 
@@ -93,18 +95,19 @@ async def send_poll(message: Message, state: FSMContext):
     if bol:
         list_answers = [state_data['answer_1'], state_data['answer_2'], state_data['answer_3'], state_data['answer_4'],
                         state_data['answer_5'], state_data['answer_6']]
-        await sending_a_created(message, int(state_data['numbers']), str(state_data['question']), list_answers)
-        link = await deep_linking.get_start_link(message.message_id + 1)
+        await sending_a_created(message, int(state_data['numbers']), str(state_data['question']), list_answers,
+                                str(bol.id_poll))
+        link = await deep_linking.get_start_link(bol.id_poll)
         await message.answer("Cсылка: " + link)
     else:
         await message.answer("Как какать?")
     await state.finish()
 
 
-async def sending_a_created(message: Message, count_answers: int, question: str, list_answer: list):
+async def sending_a_created(message: Message, count_answers: int, question: str, list_answer: list, id_poll: str):
     keyboard = InlineKeyboardMarkup(resize_keyboard=True)
     for i in range(1, count_answers):
-        ans = "answer_" + str(i)
+        ans = "answer_" + id_poll + "_" + str(i)
         keyboard.add(KeyboardButton(text=list_answer[i - 1], callback_data=ans))
     await message.answer(question, reply_markup=keyboard)
 
@@ -113,9 +116,9 @@ async def sending_a_created(message: Message, count_answers: int, question: str,
 
 # Создание ответа на опрос
 async def call_back_answer(call: CallbackQuery):
-    await db_create_answer(call.message.message_id, call.from_user.id,
-                           int(call.data[-1]))  # TODO как получать id опроса
-    await call.message.edit_text("Выбран ответ №" + call.data[-1])
+    spl = call.data.split("_")
+    await db_create_answer(int(spl[1]), call.from_user.id, int(spl[2]))
+    await call.message.edit_text("Выбран ответ №" + spl[2])
 
 
 # Блок закончен
@@ -192,7 +195,7 @@ async def keyboard_statistics_poll(state: FSMContext):
         if state_data['page'] * 3 + i < len(state_data['owner_polls']):
             keyboard.add(KeyboardButton(text=state_data['owner_polls'][state_data['page'] * 3 + i].question,
                                         callback_data="statistics_answer_" + str(i)))
-    keyboard.add(KeyboardButton(text="<", callback_data="last"),
+    keyboard.add(KeyboardButton(text="<", callback_data=a.new(chlen='xui')),
                  KeyboardButton(text=">", callback_data="next"))
     return keyboard
 
@@ -210,6 +213,9 @@ async def information_statistics_pool(call: CallbackQuery, state: FSMContext):
 
 
 # Блок закончен
+
+a = CallbackData('a', 'chlen')
+a.filter(chlen='xui')
 
 
 # Регистрация хендлеров

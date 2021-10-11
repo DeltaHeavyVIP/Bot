@@ -21,10 +21,10 @@ async def db_create_pool(id_owner: int, count_answer: int, question: str, answer
                          answer_5: str, answer_6: str):
     await db_start()
     try:
-        await Poll.create(id_owner=id_owner, count_answer=count_answer, question=question, answer_1=answer_1,
-                          answer_2=answer_2, answer_3=answer_3,
-                          answer_4=answer_4, answer_5=answer_5, answer_6=answer_6)
-        return True
+        poll = await Poll.create(id_owner=id_owner, count_answer=count_answer, question=question, answer_1=answer_1,
+                                 answer_2=answer_2, answer_3=answer_3,
+                                 answer_4=answer_4, answer_5=answer_5, answer_6=answer_6)
+        return poll
     except IntegrityError:
         logger.error("Данный опрос уже существует")
     finally:
@@ -34,7 +34,7 @@ async def db_create_pool(id_owner: int, count_answer: int, question: str, answer
 async def db_create_answer(id_poll: int, id_respondent: int, number_answer: int):
     await db_start()
     try:
-        await Answer.create(id_poll=id_poll, id_respondent=id_respondent, number_answer=number_answer)
+        await Answer.create(poll_id=id_poll, respondent=id_respondent, answer=number_answer)
     except IntegrityError:
         logger.error("А как какать?")
     finally:
@@ -43,7 +43,7 @@ async def db_create_answer(id_poll: int, id_respondent: int, number_answer: int)
 
 async def db_is_respondent(id_poll: int, id_user: int):
     await db_start()
-    ret = await Answer.filter(id_poll=id_poll, id_owner=id_user).count()
+    ret = await Answer.filter(poll_id=id_poll, respondent=id_user).count()
     await db_close_connections()
     return ret
 
@@ -60,7 +60,7 @@ async def db_get_statistics_pool(id_poll: int):
     await db_start()
     for i in range(1, 7):
         text = 'answ_' + str(i)
-        dictionary[text] = await Answer.filter(poll=id_poll, id_answer=i).count()
+        dictionary[text] = await Answer.filter(poll=id_poll, answer=i).count()
     await db_close_connections()
     return dictionary
 

@@ -1,15 +1,12 @@
 import asyncio
-import logging
-import app.handlers as h
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
+from app import register_handlers_start
+from app.db import db_start, db_close_connections
 from app.read_conf import load_config
-
-logger = logging.getLogger(__name__)
-config = load_config("config/bot.ini")
 
 
 async def set_commands(bot: Bot):
@@ -21,20 +18,19 @@ async def set_commands(bot: Bot):
 
 
 async def main():
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-    )
-    logger.error("Starting bot")
-
+    config = load_config("config/bot.ini")
     bot = Bot(token=config.tg_bot.token)
     dp = Dispatcher(bot, storage=MemoryStorage())
 
-    h.register_handlers_start(dp)
+    await db_start(config)
+
+    register_handlers_start(dp)
 
     await set_commands(bot)
 
     await dp.start_polling()
+
+    await db_close_connections()
 
 
 if __name__ == '__main__':

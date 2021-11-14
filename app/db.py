@@ -5,7 +5,7 @@ from app.model import Poll, Answer
 
 
 async def db_start(config):
-    Url = f'{config.db_bot.db_type}://{config.db_bot.user}:{config.db_bot.password}@{config.db_bot.host}:{config.db_bot.port}/{config.db_bot.db_name}'
+    Url = f'{config.db_bot.db_type}://{config.db_bot.user}:{config.db_bot.password}@{config.db_bot.host}:{int(config.db_bot.port)}/{config.db_bot.db_name}'
     tortoise_config: dict = generate_config(Url, {"models": ["app.model"]})
     await Tortoise.init(
         config=tortoise_config

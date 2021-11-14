@@ -29,10 +29,10 @@ def load_config(path: str):
     config = configparser.ConfigParser()
     config.read(path)
 
-    tg_bot = config._sections["tg_bot"]
+    tg_bot = config._sections["TG_BOT"]
     tg_bot = from_dict(data_class=TgBot, data=tg_bot)
 
-    db_bot = config._sections["db_bot"]
+    db_bot = config._sections["DB_BOT"]
     db_bot = from_dict(data_class=DbBot, data=db_bot)
 
     return Config(

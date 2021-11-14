@@ -8,6 +8,9 @@ from aiogram.utils.callback_data import CallbackData
 from app.db import db_create_pool, db_create_answer, db_get_owner_polls, db_get_statistics_pool, db_get_pool, \
     db_is_respondent
 
+pool_cb = CallbackData("pool", "action")
+answer_cb = CallbackData("answer", "id_pool", "number")
+statistics_answer_cb = CallbackData("statistics_answer", "id")
 
 class OrderAnswer(StatesGroup):
     waiting_for_question = State()
@@ -83,7 +86,7 @@ async def wait_answer(message: Message, state: FSMContext):
 
 async def send_poll(message: Message, state: FSMContext):
     state_data = await state.get_data()
-    bol = await db_create_pool(message.from_user.id, state_data['numbers'], state_data['question'],
+    bol = await db_create_pool(message.from_user.id, state_data['numbers'] - 1, state_data['question'],
                                state_data['answer_1'],
                                state_data['answer_2'],
                                state_data['answer_3'], state_data['answer_4'], state_data['answer_5'],
@@ -103,18 +106,16 @@ async def send_poll(message: Message, state: FSMContext):
 async def sending_a_created(message: Message, count_answers: int, question: str, list_answer: list, id_poll: str):
     keyboard = InlineKeyboardMarkup(resize_keyboard=True)
     for i in range(1, count_answers):
-        ans = "answer_" + id_poll + "_" + str(i)
-        keyboard.add(KeyboardButton(text=list_answer[i - 1], callback_data=ans))
+        keyboard.add(KeyboardButton(text=list_answer[i - 1], callback_data=answer_cb.new(id_pool=id_poll, number=i)))
     await message.answer(question, reply_markup=keyboard)
 
 
 # Блок закончен
 
 # Создание ответа на опрос
-async def call_back_answer(call: CallbackQuery):
-    spl = call.data.split("_")
-    await db_create_answer(int(spl[1]), call.from_user.id, int(spl[2]))
-    await call.message.edit_text("Выбран ответ №" + spl[2])
+async def call_back_answer(call: CallbackQuery, callback_data: dict):
+    await db_create_answer(int(callback_data["id_pool"]), call.from_user.id, int(callback_data["number"]))
+    await call.message.edit_text("Выбран ответ №" + callback_data["id_pool"])
 
 
 # Блок закончен
@@ -129,8 +130,8 @@ async def finish_answer(message: Message, state: FSMContext):
         return
     if answer_numb < 3:
         keyboard = InlineKeyboardMarkup(resize_keyboard=True)
-        keyboard.add(KeyboardButton(text="Продолжить", callback_data="resume_pool"))
-        keyboard.add(KeyboardButton(text="Потерять", callback_data="delete_pool"))
+        keyboard.add(KeyboardButton(text="Продолжить", callback_data=pool_cb.new(action="resume")))
+        keyboard.add(KeyboardButton(text="Потерять", callback_data=pool_cb.new(action="delete")))
         await message.answer("В опросе нельзя использовать меньше 2 ответов, вы хотите потерять все данные?",
                              reply_markup=keyboard)
     else:
@@ -189,15 +190,15 @@ async def keyboard_statistics_poll(state: FSMContext):
     for i in range(0, 3):
         if state_data['page'] * 3 + i < len(state_data['owner_polls']):
             keyboard.add(KeyboardButton(text=state_data['owner_polls'][state_data['page'] * 3 + i].question,
-                                        callback_data="statistics_answer_" + str(i)))
-    keyboard.add(KeyboardButton(text="<", callback_data=a.new(chlen='xui')),
-                 KeyboardButton(text=">", callback_data="next"))
+                                        callback_data=statistics_answer_cb.new(id=i)))
+    keyboard.add(KeyboardButton(text="<", callback_data=pool_cb.new(action="last")),
+                 KeyboardButton(text=">", callback_data=pool_cb.new(action="next")))
     return keyboard
 
 
-async def information_statistics_pool(call: CallbackQuery, state: FSMContext):
+async def information_statistics_pool(call: CallbackQuery, callback_data: dict, state: FSMContext):
     state_data = await state.get_data()
-    poll = state_data['owner_polls'][state_data['page'] * 3 + int(call.data[-1])]
+    poll = state_data['owner_polls'][state_data['page'] * 3 + int(callback_data["id"])]
     dictionary = await db_get_statistics_pool(poll.id_poll)
     await call.bot.delete_message(call.message.chat.id, call.message.message_id)
     mes = "Ваш вопрос: " + str(poll.question) + "\n"
@@ -208,6 +209,3 @@ async def information_statistics_pool(call: CallbackQuery, state: FSMContext):
 
 
 # Блок закончен
-
-a = CallbackData('a', 'chlen')
-a.filter(chlen='xui')

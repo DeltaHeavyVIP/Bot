@@ -21,7 +21,7 @@ async def wait_question(message: Message, state: FSMContext):
     await state.update_data(question=message.text)
     await message.answer("Напишите текст ответа №1")
     await OrderAnswer.next()
-    await state.update_data(numbers=1)
+    await state.update_data(numbers=0)
     await state.update_data(answer_3=None)
     await state.update_data(answer_4=None)
     await state.update_data(answer_5=None)
@@ -30,8 +30,8 @@ async def wait_question(message: Message, state: FSMContext):
 
 async def wait_answer(message: Message, state: FSMContext):
     state_data = await state.get_data()
-    answer_numb = state_data['numbers']
-    await state.update_data(numbers=answer_numb + 1)
+    answer_numb = state_data['numbers'] + 1
+    await state.update_data(numbers=answer_numb)
 
     ans = "Напишите текст ответа №" + str(
         answer_numb + 1) + "\n" + "\nЕсли ответов не осталось, то введите команду /finish"
@@ -57,7 +57,7 @@ async def wait_answer(message: Message, state: FSMContext):
 
 async def send_poll(message: Message, state: FSMContext):
     state_data = await state.get_data()
-    bol = await db_create_pool(message.from_user.id, state_data['numbers'] - 1, state_data['question'],
+    bol = await db_create_pool(message.from_user.id, state_data['numbers'], state_data['question'],
                                state_data['answer_1'],
                                state_data['answer_2'],
                                state_data['answer_3'], state_data['answer_4'], state_data['answer_5'],
@@ -80,7 +80,7 @@ async def send_poll(message: Message, state: FSMContext):
 async def finish_answer(message: Message, state: FSMContext):
     state_data = await state.get_data()
     try:
-        answer_numb = state_data['numbers']
+        answer_numb = state_data['numbers'] + 1
     except:
         return
     if answer_numb < 3:

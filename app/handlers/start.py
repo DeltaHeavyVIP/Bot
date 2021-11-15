@@ -27,11 +27,11 @@ async def start(message: Message, state: FSMContext):
         except:
             await message.answer("Такого опроса не существует!")
             return
-        await sending_a_created(message, count_answers + 1, question, list_answer, spl[1])
+        await sending_a_created(message, count_answers, question, list_answer, spl[1])
 
 
 async def sending_a_created(message: Message, count_answers: int, question: str, list_answer: list, id_poll: str):
     keyboard = InlineKeyboardMarkup(resize_keyboard=True)
-    for i in range(1, count_answers):
+    for i in range(1, count_answers + 1):
         keyboard.add(KeyboardButton(text=list_answer[i - 1], callback_data=answer_cb.new(id_pool=id_poll, number=i)))
     await message.answer(question, reply_markup=keyboard)

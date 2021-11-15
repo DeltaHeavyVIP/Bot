@@ -61,7 +61,7 @@ async def information_statistics_pool(call: CallbackQuery, callback_data: dict, 
     dictionary = await db_get_statistics_pool(poll.id_poll)
     await call.bot.delete_message(call.message.chat.id, call.message.message_id)
     mes = "Ваш вопрос: " + str(poll.question) + "\n"
-    for i in range(1, poll.count_answer):
+    for i in range(1, poll.count_answer + 1):
         answ = 'answ_' + str(i)
         mes += "За ответ №" + str(i) + " проголосовало: " + str(dictionary.get(answ)) + " человек\n"
     await call.message.answer(mes)

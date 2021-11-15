@@ -20,24 +20,24 @@ async def statistics_pool(message: Message, state: FSMContext):
 
 
 async def next_statistics_poll(call: CallbackQuery, state: FSMContext):
-    state_data = await state.get_data()
-    if (state_data['page'] + 1) * k < len(state_data['owner_polls']):
-        await state.update_data(page=(state_data['page'] + 1))
-    else:
-        await state.update_data(page=0)
+    async with state.proxy() as state_proxy:
+        if (state_proxy['page'] + 1) * k < len(state_proxy['owner_polls']):
+            state_proxy['page'] += 1
+        else:
+            state_proxy['page'] = 0
     keyboard = await keyboard_statistics_poll(state)
     await call.message.edit_text("Ниже представлены ваши опросы.", reply_markup=keyboard)
 
 
 async def last_statistics_poll(call: CallbackQuery, state: FSMContext):
-    state_data = await state.get_data()
-    if state_data['page'] > 0:
-        await state.update_data(page=(state_data['page'] - 1))
-    else:
-        if len(state_data['owner_polls']) % k == 0:
-            await state.update_data(page=(len(state_data['owner_polls']) // k) - 1)
+    async with state.proxy() as state_proxy:
+        if state_proxy['page'] > 0:
+            state_proxy['page'] -= 1
         else:
-            await state.update_data(page=(len(state_data['owner_polls']) // k))
+            if len(state_proxy['owner_polls']) % k == 0:
+                state_proxy['page'] = (len(state_proxy['owner_polls']) // k) - 1
+            else:
+                state_proxy['page'] = (len(state_proxy['owner_polls']) // k)
     keyboard = await keyboard_statistics_poll(state)
     await call.message.edit_text("Ниже представлены ваши опросы.", reply_markup=keyboard)
 

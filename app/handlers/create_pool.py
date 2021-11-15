@@ -18,39 +18,39 @@ async def create_pool(message: Message):
 
 
 async def wait_question(message: Message, state: FSMContext):
-    await state.update_data(question=message.text)
     await message.answer("Напишите текст ответа №1")
     await OrderAnswer.next()
-    await state.update_data(numbers=0)
-    await state.update_data(answer_3=None)
-    await state.update_data(answer_4=None)
-    await state.update_data(answer_5=None)
-    await state.update_data(answer_6=None)
+    async with state.proxy() as state_proxy:
+        state_proxy['question'] = message.text
+        state_proxy['numbers'] = 0
+        state_proxy['answer_3'] = None
+        state_proxy['answer_4'] = None
+        state_proxy['answer_5'] = None
+        state_proxy['answer_6'] = None
 
 
 async def wait_answer(message: Message, state: FSMContext):
-    state_data = await state.get_data()
-    answer_numb = state_data['numbers'] + 1
-    await state.update_data(numbers=answer_numb)
+    async with state.proxy() as state_proxy:
+        state_proxy['numbers'] += 1
 
     ans = "Напишите текст ответа №" + str(
-        answer_numb + 1) + "\n" + "\nЕсли ответов не осталось, то введите команду /finish"
-    if answer_numb == 1:
+        state_proxy['numbers'] + 1) + "\n" + "\nЕсли ответов не осталось, то введите команду /finish"
+    if state_proxy['numbers'] == 1:
         await message.answer("Напишите текст ответа №2")
         await state.update_data(answer_1=message.text)
-    elif answer_numb == 2:
+    elif state_proxy['numbers'] == 2:
         await message.answer(ans)
         await state.update_data(answer_2=message.text)
-    elif answer_numb == 3:
+    elif state_proxy['numbers'] == 3:
         await message.answer(ans)
         await state.update_data(answer_3=message.text)
-    elif answer_numb == 4:
+    elif state_proxy['numbers'] == 4:
         await message.answer(ans)
         await state.update_data(answer_4=message.text)
-    elif answer_numb == 5:
+    elif state_proxy['numbers'] == 5:
         await message.answer(ans)
         await state.update_data(answer_5=message.text)
-    elif answer_numb == 6:
+    elif state_proxy['numbers'] == 6:
         await state.update_data(answer_6=message.text)
         await send_poll(message, state)
 
@@ -80,17 +80,16 @@ async def send_poll(message: Message, state: FSMContext):
 async def finish_answer(message: Message, state: FSMContext):
     state_data = await state.get_data()
     try:
-        answer_numb = state_data['numbers'] + 1
+        if state_data['numbers'] < 2:
+            keyboard = InlineKeyboardMarkup(resize_keyboard=True)
+            keyboard.add(KeyboardButton(text="Продолжить", callback_data=pool_cb.new(action="resume")))
+            keyboard.add(KeyboardButton(text="Потерять", callback_data=pool_cb.new(action="delete")))
+            await message.answer("В опросе нельзя использовать меньше 2 ответов, вы хотите потерять все данные?",
+                                 reply_markup=keyboard)
+        else:
+            await send_poll(message, state)
     except:
         return
-    if answer_numb < 3:
-        keyboard = InlineKeyboardMarkup(resize_keyboard=True)
-        keyboard.add(KeyboardButton(text="Продолжить", callback_data=pool_cb.new(action="resume")))
-        keyboard.add(KeyboardButton(text="Потерять", callback_data=pool_cb.new(action="delete")))
-        await message.answer("В опросе нельзя использовать меньше 2 ответов, вы хотите потерять все данные?",
-                             reply_markup=keyboard)
-    else:
-        await send_poll(message, state)
 
 
 async def resume_pool(call: CallbackQuery):

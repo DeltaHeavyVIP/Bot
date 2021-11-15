@@ -22,16 +22,12 @@ async def start(message: Message, state: FSMContext):
         await message.answer("Я бот коммунист! \n"
                              "Хочешь посмотерть опрос или создать его?", reply_markup=keyboard)
     elif len(spl) == 2:
-        info = await db_is_respondent(int(spl[1]), message.from_user.id)
-        if info == 0:
-            try:
-                count_answers, question, list_answer = await db_get_pool(int(spl[1]))
-            except:
-                await message.answer("Такого опроса не существует!")
-                return
-            await sending_a_created(message, count_answers, question, list_answer, spl[1])
-        else:
-            await message.answer("Вы уже проходили этот опрос!")
+        try:
+            count_answers, question, list_answer = await db_get_pool(int(spl[1]))
+        except:
+            await message.answer("Такого опроса не существует!")
+            return
+        await sending_a_created(message, count_answers + 1, question, list_answer, spl[1])
 
 
 async def sending_a_created(message: Message, count_answers: int, question: str, list_answer: list, id_poll: str):

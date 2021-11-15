@@ -3,7 +3,7 @@ from aiogram.types import Message, ReplyKeyboardRemove, InlineKeyboardMarkup, Ke
 from aiogram.utils import deep_linking
 from aiogram.utils.callback_data import CallbackData
 
-from app.db import db_create_pool, db_create_answer
+from app.db import db_create_pool, db_create_answer, db_is_respondent
 from app.handlers.start import OrderAnswer, sending_a_created
 
 pool_cb = CallbackData("pool", "action")
@@ -109,7 +109,11 @@ async def delete_pool(call: CallbackQuery, state: FSMContext):
 
 # Создание ответа на опрос
 async def call_back_answer(call: CallbackQuery, callback_data: dict):
-    await db_create_answer(int(callback_data["id_pool"]), call.from_user.id, int(callback_data["number"]))
-    await call.message.edit_text("Выбран ответ №" + callback_data["number"])
+    info = await db_is_respondent(int(callback_data["id_pool"]), call.from_user.id)
+    if info == 0:
+        await db_create_answer(int(callback_data["id_pool"]), call.from_user.id, int(callback_data["number"]))
+        await call.message.edit_text("Выбран ответ №" + callback_data["number"])
+    else:
+        await call.message.edit_text("Ты думал я не узнаю что ты голосуешь 2 раз?!\n Пососи, туц туц туц")
 
 # Блок закончен

@@ -4,10 +4,9 @@ from aiogram.utils import deep_linking
 from aiogram.utils.callback_data import CallbackData
 
 from app.db import db_create_pool, db_create_answer
-from app.handlers.start import OrderAnswer
+from app.handlers.start import OrderAnswer, sending_a_created
 
 pool_cb = CallbackData("pool", "action")
-answer_cb = CallbackData("answer", "id_pool", "number")
 
 
 # Создание опроса
@@ -73,13 +72,6 @@ async def send_poll(message: Message, state: FSMContext):
     else:
         await message.answer("Как какать?")
     await state.finish()
-
-
-async def sending_a_created(message: Message, count_answers: int, question: str, list_answer: list, id_poll: str):
-    keyboard = InlineKeyboardMarkup(resize_keyboard=True)
-    for i in range(1, count_answers):
-        keyboard.add(KeyboardButton(text=list_answer[i - 1], callback_data=answer_cb.new(id_pool=id_poll, number=i)))
-    await message.answer(question, reply_markup=keyboard)
 
 
 # Блок закончен

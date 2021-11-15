@@ -1,9 +1,11 @@
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import StatesGroup, State
-from aiogram.types import ReplyKeyboardMarkup, Message
+from aiogram.types import ReplyKeyboardMarkup, Message, InlineKeyboardMarkup, KeyboardButton
+from aiogram.utils.callback_data import CallbackData
 
 from app.db import db_get_pool, db_is_respondent
-from app.handlers.create_pool import sending_a_created
+
+answer_cb = CallbackData("answer", "id_pool", "number")
 
 
 class OrderAnswer(StatesGroup):
@@ -30,3 +32,10 @@ async def start(message: Message, state: FSMContext):
             await sending_a_created(message, count_answers, question, list_answer, spl[1])
         else:
             await message.answer("Вы уже проходили этот опрос!")
+
+
+async def sending_a_created(message: Message, count_answers: int, question: str, list_answer: list, id_poll: str):
+    keyboard = InlineKeyboardMarkup(resize_keyboard=True)
+    for i in range(1, count_answers):
+        keyboard.add(KeyboardButton(text=list_answer[i - 1], callback_data=answer_cb.new(id_pool=id_poll, number=i)))
+    await message.answer(question, reply_markup=keyboard)

@@ -1,8 +1,9 @@
 from aiogram import Dispatcher
 from aiogram.dispatcher.filters import Text
-from app.handlers.create_pool import *
 from app.handlers.start import *
+from app.handlers.create_pool import *
 from app.handlers.statistics_pool import *
+
 
 def register_handlers_start(dp: Dispatcher):
     dp.register_message_handler(finish_answer, commands="finish", state="*")

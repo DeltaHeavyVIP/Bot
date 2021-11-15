@@ -110,6 +110,6 @@ async def delete_pool(call: CallbackQuery, state: FSMContext):
 # Создание ответа на опрос
 async def call_back_answer(call: CallbackQuery, callback_data: dict):
     await db_create_answer(int(callback_data["id_pool"]), call.from_user.id, int(callback_data["number"]))
-    await call.message.edit_text("Выбран ответ №" + callback_data["id_pool"])
+    await call.message.edit_text("Выбран ответ №" + callback_data["number"])
 
 # Блок закончен

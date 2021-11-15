@@ -7,6 +7,7 @@ from app.db import db_get_owner_polls, db_get_statistics_pool
 from app.handlers.create_pool import pool_cb
 
 statistics_answer_cb = CallbackData("statistics_answer", "id")
+k = 3
 
 
 # Статистика опросов
@@ -20,7 +21,7 @@ async def statistics_pool(message: Message, state: FSMContext):
 
 async def next_statistics_poll(call: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
-    if (state_data['page'] + 1) * 3 < len(state_data['owner_polls']):
+    if (state_data['page'] + 1) * k < len(state_data['owner_polls']):
         await state.update_data(page=(state_data['page'] + 1))
     else:
         await state.update_data(page=0)
@@ -30,13 +31,13 @@ async def next_statistics_poll(call: CallbackQuery, state: FSMContext):
 
 async def last_statistics_poll(call: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
-    if state_data['page'] * 3 > 0:
+    if state_data['page'] > 0:
         await state.update_data(page=(state_data['page'] - 1))
     else:
-        if len(state_data['owner_polls']) % 3 == 0:
-            await state.update_data(page=(len(state_data['owner_polls']) // 3) - 1)
+        if len(state_data['owner_polls']) % k == 0:
+            await state.update_data(page=(len(state_data['owner_polls']) // k) - 1)
         else:
-            await state.update_data(page=(len(state_data['owner_polls']) // 3))
+            await state.update_data(page=(len(state_data['owner_polls']) // k))
     keyboard = await keyboard_statistics_poll(state)
     await call.message.edit_text("Ниже представлены ваши опросы.", reply_markup=keyboard)
 
@@ -44,18 +45,19 @@ async def last_statistics_poll(call: CallbackQuery, state: FSMContext):
 async def keyboard_statistics_poll(state: FSMContext):
     state_data = await state.get_data()
     keyboard = InlineKeyboardMarkup(resize_keyboard=True)
-    for i in range(0, 3):
-        if state_data['page'] * 3 + i < len(state_data['owner_polls']):
-            keyboard.add(KeyboardButton(text=state_data['owner_polls'][state_data['page'] * 3 + i].question,
+    for i in range(0, k):
+        if state_data['page'] * k + i < len(state_data['owner_polls']):
+            keyboard.add(KeyboardButton(text=state_data['owner_polls'][state_data['page'] * k + i].question,
                                         callback_data=statistics_answer_cb.new(id=i)))
-    keyboard.add(KeyboardButton(text="<", callback_data=pool_cb.new(action="last")),
-                 KeyboardButton(text=">", callback_data=pool_cb.new(action="next")))
+    if len(state_data['owner_polls']) > k:
+        keyboard.add(KeyboardButton(text="<", callback_data=pool_cb.new(action="last")),
+                     KeyboardButton(text=">", callback_data=pool_cb.new(action="next")))
     return keyboard
 
 
 async def information_statistics_pool(call: CallbackQuery, callback_data: dict, state: FSMContext):
     state_data = await state.get_data()
-    poll = state_data['owner_polls'][state_data['page'] * 3 + int(callback_data["id"])]
+    poll = state_data['owner_polls'][state_data['page'] * k + int(callback_data["id"])]
     dictionary = await db_get_statistics_pool(poll.id_poll)
     await call.bot.delete_message(call.message.chat.id, call.message.message_id)
     mes = "Ваш вопрос: " + str(poll.question) + "\n"
